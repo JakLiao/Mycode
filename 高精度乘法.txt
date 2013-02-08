@@ -1,0 +1,297 @@
+设计高精度乘法计算函数
+
+重庆建设中学 杨宏伟
+
+　　我们知道计算机的计算精度不是无限大的，甚至是十分有限的。CPU的字长和操作系统的处理能力直接制约着运算精度和运算能力。随着计算机应用的深入，人们对计算能力的需求，尤其是精度的需求，越来越高。虽然目前32位CPU及操作系统提供的计算精度，较之从前已有很大的提高，而且精度更高的64位CPU及操作系统正在普及，但是，对许多计算机应用课题来说，能不能具有不直接依赖硬件条件的高精度、高性能计算能力仍是至关重要的。为此，设计高精度计算的软件包，用软件方法实现高精度计算，是一件有实用价值的工作。例如，目前在电子商务应用中，密码的校验及计算就是对高精度计算的典型需求。
+
+分析问题
+
+由于C语言具有执行效率高、支持动态存储分配等特点，我们选用C语言编写了一套工具函数，供高精度计算使用。乘法运算在计算机运算中是一种基本运算，它的计算过程对整个计算效率有举足轻重的影响。仔细研究乘法运算对高精度计算十分必要。
+
+为了实现高精度计算，首先要建立高精度的数据表示方法。我们采用将整数和小数分开，组成两个队列的方法存储数据。这种方法不仅节约存储空间，而且有利于确保整数运算的精度。
+
+描述运算对象的数据结构如下：
+
+struct VARARRAY {
+
+char cDigit; //保存数据位
+
+//指向下一个数据位
+
+struct VARARRAY ＊ spNext;
+
+};
+
+　
+
+struct SUPERNUMBER
+
+{
+
+//指向最低位整数
+
+struct VARARRAY ＊ spIntPart;
+
+　
+
+//指向最低位小数
+
+struct VARARRAY ＊ spDecPart;
+
+　
+
+//指向最高位整数
+
+struct VARARRAY ＊ spIntLast;
+
+　
+
+//指向最高位小数
+
+struct VARARRAY ＊ spDecLast;
+
+　
+
+int iNumberInt; //整数位数
+
+int iNumberDec; //小数位数
+
+char cSign;
+
+}; //符号位
+
+在用SUPERNUMBER结构描述运算对象的基础上，我们定义了一套函数，全面实现SUPERNUMBER型数据的输入、输出、赋值、比较、加、减、乘、除、整除等运算功能。本文重点介绍无精度损失的乘法计算方法及主要函数的设计。
+
+乘法算法
+
+为了不损失计算精度，我们将乘法转换为加法实现，基本算法如下：
+
+1．将数符较多的数据表示为X，作为加数，数符较少的数据表示为Y，控制加法次数；
+
+2．如果Y含有小数部分，将Y转变为纯整数YDEC，并记录小数点的右移位数I；
+
+3．初始化返回值T为0，取得Y的位数WIDTH，设计数器COUNT为0；
+
+4．取Y右侧第COUNT＋1位，以此数为次数加X，再左移COUNT位，加到T中；
+
+5．把COUNT加1；
+
+6．若COUNT等于WIDTH，转下一步，否则转第4步；
+
+7．将T中的小数点左移I位；
+
+8．返回T，得到乘法结果。
+
+本算法的特点是加法次数少，若Y的宽度为W，最多进行9×W次加法及W次移位即可。
+
+乘法函数
+
+乘法函数通过把两个SUPERNUMBER型的数据相加实现运算目的，其结果通过指针返回。
+
+struct SUPERNUMBER ＊ su_mu(
+
+struct SUPERNUMBER ＊ spSourceOne,
+
+struct SUPERNUMBER ＊ spSourceTwo)
+
+{
+
+struct SUPERNUMBER ＊ spNew;
+
+struct SUPERNUMBER ＊ spYDec;
+
+struct SUPERNUMBER ＊ spX，＊ spY，＊ spC，＊ spT;
+
+struct VARARRAY ＊ spTem;
+
+int iYDec,iWidth,iDigit,iC1,iC2;
+
+spNew=su_as(“0”);
+
+if (spSourceOne－>iNumberInt＋spSourceOne－>iNumberDec>=spSourceTwo－>iNumberInt＋
+
+spSourceTwo－>iNumberDec){
+
+spX=su_co(spSourceOne);
+
+spY=su_co(spSourceTwo);
+
+}
+
+else{
+
+spY=su_co(spSourceOne);
+
+spX=su_co(spSourceTwo);
+
+}
+
+iYDec=spY－>iNumberDec;
+
+spYDec=su_mo(spY,iYDec);
+
+iWidth=spYDec－>iNumberInt;
+
+spTem=spYDec－>spIntPart;
+
+for(iC1=0;iC1<iWidth;iC1＋＋)
+
+{
+
+iDigit=(int)(spTem－>cDigit－‘0’);
+
+spTem=spTem－>spNext;
+
+spC=su_as(“0”);
+
+for(iC2=0;iC2<iDigit;iC2＋＋)
+
+{
+
+spT=su_ad(spC,spX);
+
+su_fr(spC);
+
+spC=su_co(spT);
+
+su_fr(spT);
+
+　
+
+}
+
+spT=su_mo(spC,iC1);
+
+su_fr(spC);
+
+spC=su_ad(spNew,spT);
+
+su_fr(spNew);su_fr(spT);
+
+spNew=su_co(spC);
+
+su_fr(spC);
+
+}
+
+spT=su_mo(spNew,－iYDec);
+
+su_fr(spNew);
+
+spNew=su_co(spT);
+
+su_fr(spT);
+
+su_fr(spYDec);
+
+su_fr(spX);
+
+su_fr(spY);
+
+return spNew;
+
+}
+
+在此函数中，我们使用了在高精度计算软件包中定义的其他函数（本文省略其实现代码），主要有：
+
+1．将字符串转化为SUPERNUMBER类型：
+
+struct SUPERNUMBER ＊ su_as(char＊zpSource);
+
+2．将一个SUPERNUMBER复制到另一个SUPERNUMBER中：
+
+struct SUPERNUMBER ＊ su_co(struct SUPERNUMBER ＊ spSource);
+
+3．两个SUPERNUMBER的“等于”关系运算，若相等，返回1：
+
+int su_ee(struct SUPERNUMBER ＊ spSource, struct SUPERNUMBER ＊ spDesti);
+
+4．两个SUPERNUMBER数的加法运算：
+
+struct SUPERNUMBER ＊ su_ad(struct
+
+SUPERNUMBER ＊ spSource,struct SUPERNUMBER ＊ spDestination);
+
+5．SUPERNUMBER与用整数表示的数据的加法运算：
+
+struct SUPERNUMBER ＊ su_si(
+
+struct
+
+SUPERNUMBER ＊ spSource, int iDesti);
+
+6．移动小数点：
+
+struct SUPERNUMBER ＊ su_mo(struct
+
+SUPERNUMBER ＊ spSource, int iNum);
+
+7．释放SUPERNUMBER数据的存储空间：
+
+void su_fr(struct SUPERNUMBER ＊ spSource)；
+
+应用实例
+
+当我们计算16的阶乘时，常规的方法难于直接得到正确的结果，即使定义长整型(long int)数据，在计算出11的阶乘39916800之后，也开始出现数据错误。但是利用本文介绍的方法，可精确地计算出从1到16的阶乘值。代码如下：
+
+FILE ＊ fp;
+
+struct SUPERNUMBER ＊ spX;
+
+struct SUPERNUMBER ＊ spY;
+
+struct SUPERNUMBER ＊ spZ;
+
+struct SUPERNUMBER ＊ spSum;
+
+fp=fopen(“abcd.txt”,“a＋”);
+
+if (fp==NULL) MessageBox(hWndMain,“file error”,“”,MB_OK);
+
+//初始化变量
+
+spX=su_as(“0”);
+
+spY=su_as(“30”);
+
+spSum=su_as(“1”);
+
+//计算从1到16的阶乘值
+
+lp: spZ=su_si(spX,1);
+
+su_fr(spX);
+
+spX=su_co(spZ);
+
+su_fr(spZ); spZ=su_mu(spSum,spX);
+
+su_fr(spSum);
+
+spSum=su_co(spZ);
+
+su_fr(spZ);
+
+su_os(spSum);
+
+su_of(spX,fp);
+
+su_of(spSum,fp);
+
+if (!su_ee(spY,spX)) goto lp;
+
+　
+
+fclose(fp);
+
+运算结果为：
+
+1 ! 1 2! 2
+
+3 ! 6 4! 24
+
+…
+
+13 ! 6227020800 14! 87178291200
+
+15 ! 1307674368000 16! 20922789888000
